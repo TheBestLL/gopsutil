@@ -303,9 +303,7 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *ExVir
 			ret.Available = ret.Cached + ret.Free
 		}
 	}
-	//https://github.com/giampaolo/psutil/blob/122174a10b75c9beebe15f6c07dcf3afbe3b120d/psutil/_pslinux.py#L175
-	// Buff/Cache is actually being used
-	ret.Used = ret.Total - ret.Free
+	ret.Used = ret.Total - ret.Free - ret.Buffers - ret.Cached
 	ret.UsedPercent = float64(ret.Used) / float64(ret.Total) * 100.0
 
 	return ret, retEx, nil
