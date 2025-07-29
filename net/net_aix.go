@@ -81,36 +81,36 @@ func parseNetstatNetLine(line string) (ConnectionStat, error) {
 
 var portMatch = regexp.MustCompile(`(.*)\.(\d+)$`)
 
+func parseAddr(l string, family uint32) (Addr, error) {
+	matches := portMatch.FindStringSubmatch(l)
+	if matches == nil {
+		return Addr{}, fmt.Errorf("wrong addr, %s", l)
+	}
+	host := matches[1]
+	port := matches[2]
+	if host == "*" {
+		switch family {
+		case syscall.AF_INET:
+			host = "0.0.0.0"
+		case syscall.AF_INET6:
+			host = "::"
+		default:
+			return Addr{}, fmt.Errorf("unknown family, %d", family)
+		}
+	}
+	lport, err := strconv.ParseInt(port, 10, 32)
+	if err != nil {
+		return Addr{}, err
+	}
+	return Addr{IP: host, Port: uint32(lport)}, nil
+}
+
 // This function only works for netstat returning addresses with a "."
 // before the port (0.0.0.0.22 instead of 0.0.0.0:22).
-func parseNetstatAddr(local string, remote string, family uint32) (laddr Addr, raddr Addr, err error) {
-	parse := func(l string) (Addr, error) {
-		matches := portMatch.FindStringSubmatch(l)
-		if matches == nil {
-			return Addr{}, fmt.Errorf("wrong addr, %s", l)
-		}
-		host := matches[1]
-		port := matches[2]
-		if host == "*" {
-			switch family {
-			case syscall.AF_INET:
-				host = "0.0.0.0"
-			case syscall.AF_INET6:
-				host = "::"
-			default:
-				return Addr{}, fmt.Errorf("unknown family, %d", family)
-			}
-		}
-		lport, err := strconv.ParseInt(port, 10, 32)
-		if err != nil {
-			return Addr{}, err
-		}
-		return Addr{IP: host, Port: uint32(lport)}, nil
-	}
-
-	laddr, err = parse(local)
+func parseNetstatAddr(local, remote string, family uint32) (laddr, raddr Addr, err error) {
+	laddr, err = parseAddr(local, family)
 	if remote != "*.*" { // remote addr exists
-		raddr, err = parse(remote)
+		raddr, err = parseAddr(remote, family)
 		if err != nil {
 			return laddr, raddr, err
 		}
@@ -183,7 +183,7 @@ func hasCorrectInetProto(kind, proto string) bool {
 	return false
 }
 
-func parseNetstatA(output string, kind string) ([]ConnectionStat, error) {
+func parseNetstatA(output, kind string) ([]ConnectionStat, error) {
 	var ret []ConnectionStat
 	lines := strings.Split(string(output), "\n")
 
@@ -193,7 +193,8 @@ func parseNetstatA(output string, kind string) ([]ConnectionStat, error) {
 			continue
 		}
 
-		if strings.HasPrefix(fields[0], "f1") {
+		switch {
+		case strings.HasPrefix(fields[0], "f1"):
 			// Unix lines
 			if len(fields) < 2 {
 				// every unix connections have two lines
@@ -207,7 +208,7 @@ func parseNetstatA(output string, kind string) ([]ConnectionStat, error) {
 
 			ret = append(ret, c)
 
-		} else if strings.HasPrefix(fields[0], "tcp") || strings.HasPrefix(fields[0], "udp") {
+		case strings.HasPrefix(fields[0], "tcp") || strings.HasPrefix(fields[0], "udp"):
 			// Inet lines
 			if !hasCorrectInetProto(kind, fields[0]) {
 				continue
@@ -225,7 +226,7 @@ func parseNetstatA(output string, kind string) ([]ConnectionStat, error) {
 			}
 
 			ret = append(ret, c)
-		} else {
+		default:
 			// Header lines
 			continue
 		}

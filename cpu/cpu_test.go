@@ -2,7 +2,6 @@
 package cpu
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"testing"
@@ -59,16 +58,17 @@ func TestTimes(t *testing.T) {
 }
 
 func TestCounts(t *testing.T) {
-	v, err := Counts(true)
+	logicalCount, err := Counts(true)
 	common.SkipIfNotImplementedErr(t, err)
 	require.NoError(t, err)
-	assert.NotZerof(t, v, "could not get logical CPU counts: %v", v)
-	t.Logf("logical cores: %d", v)
-	v, err = Counts(false)
+	assert.NotZerof(t, logicalCount, "could not get logical CPU counts: %v", logicalCount)
+	t.Logf("logical cores: %d", logicalCount)
+	physicalCount, err := Counts(false)
 	common.SkipIfNotImplementedErr(t, err)
 	require.NoError(t, err)
-	assert.NotZerof(t, v, "could not get physical CPU counts: %v", v)
-	t.Logf("physical cores: %d", v)
+	assert.NotZerof(t, physicalCount, "could not get physical CPU counts: %v", physicalCount)
+	t.Logf("physical cores: %d", physicalCount)
+	assert.GreaterOrEqualf(t, logicalCount, physicalCount, "logical CPU count should be greater than or equal to physical CPU count: %v >= %v", logicalCount, physicalCount)
 }
 
 func TestTimeStat_String(t *testing.T) {
@@ -79,7 +79,7 @@ func TestTimeStat_String(t *testing.T) {
 		Idle:   300.1,
 	}
 	e := `{"cpu":"cpu0","user":100.1,"system":200.1,"idle":300.1,"nice":0.0,"iowait":0.0,"irq":0.0,"softirq":0.0,"steal":0.0,"guest":0.0,"guestNice":0.0}`
-	assert.JSONEqf(t, e, fmt.Sprintf("%v", v), "CPUTimesStat string is invalid: %v", v)
+	assert.JSONEqf(t, e, v.String(), "CPUTimesStat string is invalid: %v", v)
 }
 
 func TestInfo(t *testing.T) {
